@@ -14,7 +14,7 @@ from scipy.optimize import minimize, least_squares
 import warnings
 
 from .minimizer import minimize_wrapper, minimizer_ball
-from .ensemble import run_emcee_sampler
+from .ensemble import run_emcee_sampler, restart_emcee_sampler
 from .nested import run_dynesty_sampler
 from ..likelihood import lnlike_spec, lnlike_phot, chi_spec, chi_phot, write_log
 from ..utils.obsutils import fix_obs
@@ -28,7 +28,7 @@ __all__ = ["lnprobfn", "fit_model",
 def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
              residuals=False, nested=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
-    ata and a model object, return the matural log of the posterior. This
+    ata and a model object, return the natural log of the posterior. This
     requires that an sps object (and if using spectra and gaussian processes, a
     NoiseModel) be instantiated.
 

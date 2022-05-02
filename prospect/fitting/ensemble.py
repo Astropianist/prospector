@@ -401,7 +401,7 @@ def reinitialize_ball(pos, prob, center=None, ptiles=[25, 50, 75],
     scatter = np.abs((tmp[2] - tmp[0]) / 1.35)
     scatter = np.sqrt(scatter**2 + disp_floor**2)
 
-    pnew = resample_until_valid(sampler_ball, initial_center, scatter,
+    pnew = resample_until_valid(sampler_ball, center, scatter,
                                 nwalkers, **extras)
     return pnew
 
