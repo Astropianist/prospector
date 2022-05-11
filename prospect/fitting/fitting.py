@@ -25,8 +25,7 @@ __all__ = ["lnprobfn", "fit_model",
            ]
 
 
-def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
-             residuals=False, nested=False, verbose=False):
+def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None), residuals=False, nested=False, verbose=False):
     """Given a parameter vector and optionally a dictionary of observational
     ata and a model object, return the natural log of the posterior. This
     requires that an sps object (and if using spectra and gaussian processes, a
@@ -85,6 +84,8 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     else:
         lnnull = -np.infty
 
+    # Set parameters to theta values
+    model.set_parameters(theta)
     # --- Calculate prior probability and exit if not within prior ---
     lnp_prior = model.prior_product(theta, nested=nested)
     if not np.isfinite(lnp_prior):
@@ -93,7 +94,6 @@ def lnprobfn(theta, model=None, obs=None, sps=None, noise=(None, None),
     #  --- Update Noise Model ---
     spec_noise, phot_noise = noise
     vectors, sigma_spec = {}, None
-    model.set_parameters(theta)
     if spec_noise is not None:
         spec_noise.update(**model.params)
         vectors.update({"unc": obs.get('unc', None)})

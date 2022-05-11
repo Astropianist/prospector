@@ -170,7 +170,7 @@ class ProspectorParams(object):
             return 0.0
         return lpp
 
-    def _prior_product(self, theta, **extras):
+    def _prior_product(self, theta, log_stellar_tot_ratio=-0.0969, **extras):
         """Return a scalar which is the ln of the product of the prior
         probabilities for each element of theta.  Requires that the prior
         functions are defined in the theta descriptor.
@@ -184,15 +184,17 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
+        extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
         for k, inds in list(self.theta_index.items()):
 
             func = self.config_dict[k]['prior']
-            this_prior = np.sum(func(theta[..., inds]), axis=-1)
+            if k=='popdust': this_prior = np.sum(func(theta[..., inds], **extra_args), axis=-1)
+            else: this_prior = np.sum(func(theta[..., inds]), axis=-1)
             lnp_prior += this_prior
 
         return lnp_prior
 
-    def prior_transform(self, unit_coords):
+    def prior_transform(self, unit_coords, log_stellar_tot_ratio=-0.0969, **extras):
         """Go from unit cube to parameter space, for nested sampling.
 
         :param unit_coords:
@@ -203,9 +205,11 @@ class ProspectorParams(object):
             corresponding to ``unit_coords``. ndarray of shape ``(ndim,)``
         """
         theta = np.zeros(len(unit_coords))
+        extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior'].unit_transform
-            theta[inds] = func(unit_coords[inds])
+            if k=='popdust': theta[inds] = func(unit_coords[inds], **extra_args)
+            else: theta[inds] = func(unit_coords[inds])
         return theta
 
     def propagate_parameter_dependencies(self):
