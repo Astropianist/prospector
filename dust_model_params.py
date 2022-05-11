@@ -496,7 +496,7 @@ class DustAttnPrior(priors.Prior):
     dust attenuation curve population model.
     """
 
-    prior_params = ['mass_mini', 'mass_maxi', 'z_mini', 'z_maxi']
+    prior_params = ['logsfr','logstmass','logzsol','zred']
     distribution = truncnorm
     massmet = np.loadtxt('gallazzi_05_massmet.txt')
 
