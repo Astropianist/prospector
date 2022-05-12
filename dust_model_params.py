@@ -7,6 +7,7 @@ from astropy.cosmology import WMAP9
 from scipy.stats import truncnorm
 from astropy.io import ascii
 from copy import deepcopy
+from duste.DustAttnCalc import *
 
 lsun = 3.846e33
 pc = 3.085677581467192e18  # in cm
@@ -496,17 +497,14 @@ class DustAttnPrior(priors.Prior):
     dust attenuation curve population model.
     """
 
-    prior_params = ['logsfr','logstmass','logzsol','zred']
+    prior_params = ['logsfr','logstmass','logzsol','zred','d1min','d1max','d2min','d2max','nmin','nmax']
     distribution = truncnorm
-    massmet = np.loadtxt('gallazzi_05_massmet.txt')
 
-    def scale(self,mass):
-        upper_84 = np.interp(mass, self.massmet[:,0], self.massmet[:,3]) 
-        lower_16 = np.interp(mass, self.massmet[:,0], self.massmet[:,2])
-        return (upper_84-lower_16)
+    def scale(self,tau2):
+        return [0.254, 0.202, 0.0725*np.sqrt(0.172*(tau2-0.0119))+0.0548]
 
     def loc(self,mass):
-        return np.interp(mass, self.massmet[:,0], self.massmet[:,1])
+        pass
 
     def get_args(self,mass):
         a = (self.params['z_mini'] - self.loc(mass)) / self.scale(mass)
