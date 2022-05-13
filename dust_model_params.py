@@ -7,7 +7,8 @@ from astropy.cosmology import WMAP9
 from scipy.stats import truncnorm
 from astropy.io import ascii
 from copy import deepcopy
-from duste.DustAttnCalc import *
+from duste.DustAttnCalc import DustAttnCalc, getTraceInfo, getMargSample
+from scipy.interpolate import RegularGridInterpolator as RGIScipy
 
 lsun = 3.846e33
 pc = 3.085677581467192e18  # in cm
@@ -15,6 +16,26 @@ pc = 3.085677581467192e18  # in cm
 lightspeed = 2.998e18  # AA/s
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 jansky_mks = 1e-26
+
+#############
+# DUST INFO
+#############
+d2n = DustAttnCalc(bv=1,eff=0)
+traced2n, xtupd2n = d2n.getPostModelData()
+ngrid, lwn, taugrid, lwt, _ = getTraceInfo(traced2n,bivar=True)
+ngrid_med, taugrid_med = np.median(ngrid,axis=0), np.median(taugrid,axis=0)
+wnmed, wtmed = np.exp(np.median(lwn)), np.exp(np.median(lwt))
+d12 = DustAttnCalc(bv=0,eff=0)
+d12.extratext, d12.indep_name = 'd1_d2', ['dust1']
+traced12, xtupd12 = d12.getPostModelData()
+d2grid, _, _, _, _ = getTraceInfo(traced12,bivar=False)
+d2grid_med = np.median(d2grid,axis=0)
+
+nint = RGIScipy(xtupd2n, ngrid_med, bounds_error=False, fill_value=None)
+d2int = RGIScipy(xtupd2n, taugrid_med, bounds_error=False, fill_value=None)
+d1int = RGIScipy(tuple([d2grid_med]), xtupd12[0], bounds_error=False, fill_value=None)
+
+inc_sample = getMargSample(nummarg=1000,bv=1,eff=0)[-1] # Need this for marginalizing over axis ratio
 
 #############
 # RUN_PARAMS
@@ -499,22 +520,38 @@ class DustAttnPrior(priors.Prior):
 
     prior_params = ['logsfr','logstmass','logzsol','zred','d1min','d1max','d2min','d2max','nmin','nmax']
     distribution = truncnorm
+        
+    def scale_d12(self,tau2):
+        return 0.0725*np.sqrt(0.172*(tau2-0.0119))+0.0548
 
-    def scale(self,tau2):
-        return [0.254, 0.202, 0.0725*np.sqrt(0.172*(tau2-0.0119))+0.0548]
+    def loc_d2n(self,numrep=10):
+        indep = np.repeat([[self.logstmass,self.logsfr,self.logzsol,self.zred,0.0]],numrep,axis=0)
+        indep[:,-1] = np.random.choice(inc_sample,size=numrep)
+        return d2int(indep), nint(indep)
 
-    def loc(self,mass):
-        pass
+    def loc_d12(self,tau2):
+        return d1int([[tau2]])
 
-    def get_args(self,mass):
-        a = (self.params['z_mini'] - self.loc(mass)) / self.scale(mass)
-        b = (self.params['z_maxi'] - self.loc(mass)) / self.scale(mass)
-        return [a, b]
+    def get_args_d2n(self):
+        locd2, locn = self.loc_d2n()
+        a_d2 = (self.params['d2min'] - locd2) / wtmed
+        b_d2 = (self.params['d2max'] - locd2) / wtmed
+        a_n = (self.params['nmin'] - locn) / wnmed
+        b_n = (self.params['nmax'] - locn) / wnmed
+        return a_d2, b_d2, a_n, b_n, locd2, locn
+
+    def get_args_d12(self,tau2):
+        locd1 = self.loc_d12(tau2)
+        wd1med = self.scale_d12(tau2)
+        a_d1 = (self.params['d1min'] - locd1) / wd1med
+        b_d1 = (self.params['d1max'] - locd1) / wd1med
+        return a_d1, b_d1, locd1, wd1med
 
     @property
     def range(self):
-        return ((self.params['mass_mini'], self.params['mass_maxi']),\
-                (self.params['z_mini'], self.params['z_maxi']))
+        return ((self.params['d2min'], self.params['d2max']),\
+                (self.params['nmin'], self.params['nmax']),
+                (self.params['d1min'], self.params['d1max']))
 
     def bounds(self, **kwargs):
         if len(kwargs) > 0:
@@ -538,10 +575,13 @@ class DustAttnPrior(priors.Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
         p = np.atleast_2d(np.zeros_like(x))
-        a, b = self.get_args(x[...,0])
-        p[...,1] = self.distribution.pdf(x[...,1], a, b, loc=self.loc(x[...,0]), scale=self.scale(x[...,0]))
+        a_d2, b_d2, a_n, b_n, locd2, locn = self.get_args_d2n()
+        a_d1, b_d1, locd1, wd1med = self.get_args_d12(x[...,0])
+        p[...,0] = self.distribution.pdf(x[...,0], a_d2, b_d2, loc=locd2, scale=wtmed)
+        p[...,1] = self.distribution.pdf(x[...,1], a_n, b_n, loc=locn, scale=wnmed)
+        p[...,2] = self.distribution.pdf(x[...,2], a_d1, b_d1, loc=locd1, scale=wd1med)
         with np.errstate(invalid='ignore'):
-            p[...,1] = np.log(p[...,1])
+            p = np.log(p)
         return p
 
     def sample(self, nsample=None, **kwargs):
@@ -552,11 +592,13 @@ class DustAttnPrior(priors.Prior):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        mass = np.random.uniform(low=self.params['mass_mini'],high=self.params['mass_maxi'],size=nsample)
-        a, b = self.get_args(mass)
-        met = self.distribution.rvs(a, b, loc=self.loc(mass), scale=self.scale(mass), size=nsample)
+        a_d2, b_d2, a_n, b_n, locd2, locn = self.get_args_d2n()
+        tau2 = self.distribution.rvs(a_d2, b_d2, loc=locd2, scale=wtmed, size=nsample)
+        n = self.distribution.rvs(a_n, b_n, loc=locn, scale=wnmed, size=nsample)
+        a_d1, b_d1, locd1, wd1med = self.get_args_d12(tau2=tau2)
+        tau1 = self.distribution.rvs(a_d1, b_d1, loc=locd1, scale=wd1med, size=nsample)
 
-        return np.array([mass, met])
+        return np.array([tau2, n, tau1])
 
     def unit_transform(self, x, **kwargs):
         """Go from a value of the CDF (between 0 and 1) to the corresponding
@@ -572,10 +614,12 @@ class DustAttnPrior(priors.Prior):
         """
         if len(kwargs) > 0:
             self.update(**kwargs)
-        mass = x[0]*(self.params['mass_maxi'] - self.params['mass_mini']) + self.params['mass_mini']
-        a, b = self.get_args(mass)
-        met = self.distribution.ppf(x[1], a, b, loc=self.loc(mass), scale=self.scale(mass))
-        return np.array([mass,met])
+        a_d2, b_d2, a_n, b_n, locd2, locn = self.get_args_d2n()
+        tau2 = self.distribution.ppf(x[0], a_d2[0], b_d2[0], loc=locd2, scale=wtmed)
+        n = self.distribution.ppf(x[1], a_n[0], b_n[0], loc=locn, scale=wnmed)
+        a_d1, b_d1, locd1, wd1med = self.get_args_d12(tau2=tau2)
+        tau1 = self.distribution.ppf(x[2], a_d1[0], b_d1[0], loc=locd1, scale=wd1med)
+        return np.array([tau2,n,tau1])
 
 ###### Redefine SPS ######
 class NebSFH(FastStepBasis):
