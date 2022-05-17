@@ -168,6 +168,15 @@ def logmass_to_logsfr(massmet=None, logsfr_ratios=None, agebins=None, stellar_to
     mass_in_bins = logmass_to_masses(massmet=massmet, logsfr_ratios=logsfr_ratios, agebins=agebins, **extras)
     return np.log10(mass_in_bins[:2].sum()*stellar_to_total/time_sfr)
 
+def dustattn_to_dust2(dustattn=None, **extras):
+    return dustattn[0]
+
+def dustattn_to_n(dustattn=None, **extras):
+    return dustattn[1]
+
+def dustattn_to_dust1(dustattn=None, **extras):
+    return dustattn[2]
+
 #############
 # MODEL_PARAMS
 #############
@@ -264,37 +273,27 @@ model_params.append({'name': 'dust_type', 'N': 1,
                         'units': 'index',
                         'prior_function_name': None,
                         'prior_args': None})
+
+model_params.append({'name': 'dustattn', 'N': 3,
+                        'isfree': True, 'init': [1.0, 0.0, 1.1],
+                        'prior': None})
                         
 model_params.append({'name': 'dust1', 'N': 1,
                         'isfree': False,
-                        'depends_on': to_dust1,
-                        'init': 1.0,
+                        'depends_on': dustattn_to_dust1,
+                        'init': 1.1,
                         'units': '',
                         'prior': None})
 
-model_params.append({'name': 'dust1_fraction', 'N': 1,
-                        'isfree': True,
-                        'init': 1.0,
-                        'init_disp': 0.8,
-                        'disp_floor': 0.8,
-                        'units': '',
-                        'prior': priors.ClippedNormal(mini=0.0, maxi=2.0, mean=1.0, sigma=0.3)})
-
 model_params.append({'name': 'dust2', 'N': 1,
-                        'isfree': True,
-                        'init': 1.0,
-                        'init_disp': 0.25,
-                        'disp_floor': 0.15,
-                        'units': '',
-                        'prior': priors.ClippedNormal(mini=0.0, maxi=4.0, mean=0.3, sigma=1)})
+                        'isfree': False, 'init': 1.0, 
+                        'depends_on': dustattn_to_dust2,
+                        'init': 1.0, 'units': '', 'prior': None})
 
 model_params.append({'name': 'dust_index', 'N': 1,
-                        'isfree': True,
-                        'init': 0.0,
-                        'init_disp': 0.25,
-                        'disp_floor': 0.15,
-                        'units': '',
-                        'prior': priors.TopHat(mini=-1.0, maxi=0.4)})
+                        'isfree': False, 'init': 0.0, 
+                        'depends_on': dustattn_to_n,
+                        'init': 0.0, 'units': '', 'prior': None})
 
 model_params.append({'name': 'dust1_index', 'N': 1,
                         'isfree': False,
@@ -412,7 +411,7 @@ model_params.append({'name': 'mass_units', 'N': 1,
 
 #### resort list of parameters for later display purposes
 parnames = [m['name'] for m in model_params]
-fit_order = ['massmet','logsfr_ratios', 'dust2', 'dust_index', 'dust1_fraction', 'fagn', 'agn_tau', 'gas_logz']
+fit_order = ['massmet','logsfr_ratios', 'dustattn', 'fagn', 'agn_tau', 'gas_logz']
 tparams = [model_params[parnames.index(i)] for i in fit_order]
 for param in model_params: 
     if param['name'] not in fit_order:
@@ -527,7 +526,7 @@ class DustAttnPrior(priors.Prior):
     def loc_d2n(self,numrep=10):
         indep = np.repeat([[self.logstmass,self.logsfr,self.logzsol,self.zred,0.0]],numrep,axis=0)
         indep[:,-1] = np.random.choice(inc_sample,size=numrep)
-        return d2int(indep), nint(indep)
+        return np.average(d2int(indep),axis=0), np.average(nint(indep),axis=0)
 
     def loc_d12(self,tau2):
         return d1int([[tau2]])
@@ -770,6 +769,7 @@ def load_model(nbins_sfh=7, sigma=0.3, df=2, agelims=run_params['agelims'], objn
     else:
         model_params[n.index('massmet')]['prior'] = priors.TopHat(mini=-1.98, maxi=0.19)
     model_params[n.index('zred')]['init'] = zred
+    model_params[n.index('dustattn')]['prior'] = DustAttnPrior(d1min=0.0,d1max=6.0,d2min=0.0,d2max=4.0,nmin=-1.0,nmax=0.4)
 
     return sedmodel.SedModel(model_params)
 
