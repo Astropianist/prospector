@@ -35,16 +35,15 @@ nint = RGIScipy(xtupd2n, ngrid_med, bounds_error=False, fill_value=None)
 d2int = RGIScipy(xtupd2n, taugrid_med, bounds_error=False, fill_value=None)
 d1int = RGIScipy(tuple([d2grid_med]), xtupd12[0], bounds_error=False, fill_value=None)
 
-inc_sample = getMargSample(nummarg=1000,bv=1,eff=0)[-1] # Need this for marginalizing over axis ratio
+inc_sample = getMargSample(num=1000,bv=1,eff=0)[-1] # Need this for marginalizing over axis ratio
 
 #############
 # RUN_PARAMS
 #############
-APPS = ''
 
 run_params = {'verbose':True,
               'debug': False,
-              'outfile': APPS+'/prospector_alpha/results/td_delta/AEGIS_13',
+              'outfile': 'results/dust_pop_test',
               'nofork': True,
               # dynesty params
               'nested_bound': 'multi', # bounding method
@@ -64,7 +63,7 @@ run_params = {'verbose':True,
               'df': 2,
               'agelims': [0.0,7.4772,8.0,8.5,9.0,9.5,9.8,10.0],
               # Data info (phot = .cat, dat = .dat, fast = .fout)
-              'datdir':APPS+'/prospector_alpha/data/3dhst/',
+              'datdir': '',
               'runname': 'td_new',
               'objname':'AEGIS_13'
               }
@@ -161,7 +160,6 @@ def logmass_to_masses(massmet=None, logsfr_ratios=None, agebins=None, **extras):
     dt = (10**agebins[:,1]-10**agebins[:,0])
     coeffs = np.array([ (1./np.prod(sratios[:i])) * (np.prod(dt[1:i+1]) / np.prod(dt[:i])) for i in range(nbins)])
     m1 = (10**massmet[0]) / coeffs.sum()
-
     return m1 * coeffs
 
 def logmass_to_logsfr(massmet=None, logsfr_ratios=None, agebins=None, stellar_to_total=0.8, time_sfr=1.0e8, **extras):
@@ -255,7 +253,7 @@ model_params.append({'name': 'agebins', 'N': 1,
 
 model_params.append({'name': 'logsfr_ratios', 'N': 7,
                         'isfree': True,
-                        'init': [],
+                        'init': [0]*7,
                         'units': '',
                         'prior': None})
 
@@ -773,3 +771,5 @@ def load_model(nbins_sfh=7, sigma=0.3, df=2, agelims=run_params['agelims'], objn
 
     return sedmodel.SedModel(model_params)
 
+def build_noise(**extras):
+    return None, None

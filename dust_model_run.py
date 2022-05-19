@@ -4,8 +4,8 @@ import td_delta_params as pfile
 import time
 from prospect.fitting import fit_model
 from prospect.io import write_results as writer
-from prospect import prospect_args
-
+from prospect.plotting import FigureMaker
+import argparse as ap
 filterset = ['sdss_r0','sdss_g0','sdss_u0','sdss_i0','sdss_z0','twomass_J','twomass_Ks','uvot_w2','uvot_m2','uvot_w1','spitzer_irac_ch1','spitzer_irac_ch2','spitzer_irac_ch3','spitzer_irac_ch4','spitzer_mips_24','herschel_pacs_70','herschel_pacs_100','herschel_pacs_160','herschel_spire_250','herschel_spire_350','herschel_spire_500']
 
 def parse_args(argv=None):
@@ -20,7 +20,8 @@ def parse_args(argv=None):
         args class has attributes of each input, i.e., args.filename
         as well as astributes from the config file
     '''
-    parser = prospect_args.get_parser()
+    parser = ap.ArgumentParser(description="dust_model_run",
+                               formatter_class=ap.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("-snr", "--snr",
                         help='''Signal to noise ratio of mock data''',
@@ -30,45 +31,63 @@ def parse_args(argv=None):
                         help='''Redshift''',
                         type=float, default=1.0)
 
-    # parser.add_argument("-uda", "--use_dust_attn",
-    #                     help='''Use dust attenuation population model as prior''',
-    #                     action='count',default=0)
+    parser.add_argument("-uda", "--use_dust_attn",
+                        help='''Use dust attenuation population model as prior''',
+                        action='count',default=0)
 
     parser.add_argument("-nf", "--num_filters",
                          help='''Number of filters to use''',
-                         type=int, default=2)               
+                         type=int, default=2) 
+
+    parser.add_argument("-o","--outfile", type=str, default="prospector_test_run",
+                        help="Root name (including path) of the output file(s).")
+
+    parser.add_argument('-d2','--dust2', type=float, default=0.5,
+                        help="Dust attenuation V band optical depth")
+    parser.add_argument('-d1','--dust1', type=float, default=0.45,
+                        help="Dust attenuation V band optical depth")
+    parser.add_argument('-n','--dust_index', type=float, default=0.0,
+                        help="Dust attenuation V band optical depth")
+    parser.add_argument('-logZ','--logzsol', type=float, default=-0.5,
+                        help="Metallicity of the mock; log(Z/Z_sun)")
+    parser.add_argument('-logM','--logmass', type=float, default=10.0,
+                        help="Log stellar mass of the mock; log solar masses formed")
+    parser.add_argument('-lsr','--logsfr_ratios', type=float, nargs='*', default=[0.0]*7, help="Stellar mass of the mock; solar masses formed")
 
     # Initialize arguments
-    return parser.parse_args(args=argv)
+    args = parser.parse_args(args=argv)
+    args.dustattn = [args.dust2,args.dust_index,args.dust1]
+    args.massmet = [args.logmass,args.logzsol]
+    args.dust1_ratio = args.dust1/args.dust2
+    return args
 
 def main():
     args = parse_args()
-    obs = dmp.build_obs(snr=args.snr,filterset=filterset[:args.num_filters],**dmp.run_params)
-    modda = dmp.load_model(zred=args.zred,**args,**dmp.run_params)
-    modnoda = pfile.load_model(zred=args.zred,**args,**dmp.run_params)
-    sps = pfile.load_sps(**args,**pfile.run_params)
+    run_params = dmp.run_params
+    run_params.update(vars(args))
+    obs = dmp.build_obs(snr=args.snr,filterset=filterset[:args.num_filters],**run_params)
+    if args.use_dust_attn:
+        mod = dmp.load_model(**run_params)
+    else:
+        mod = pfile.load_model(**run_params)
+    sps = dmp.load_sps(**run_params)
 
-    hfileda = "{0}_da_{1}_mcmc.h5".format(args.outfile, int(time.time()))
-    hfilenoda = "{0}_noda_{1}_mcmc.h5".format(args.outfile, int(time.time()))
-    outputda = fit_model(obs, modda, sps, None,**args, **dmp.run_params)
-    outputnoda = fit_model(obs, modnoda, sps, None,**args, **dmp.run_params)
+    hfile = "{0}_{1}_{2}_uda_{3}_time_{4}_args_{5}_{6}_{7}_{8}_{9}_{10}_{11}_mcmc.h5".format(args.outfile, args.nfilters, int(args.snr), int(args.use_dust_attn), int(time.time()), str(args.logmass), str(args.logzsol), str(args.zred), str(args.logsfr_ratios), str(args.dust2), str(args.dust_index), str(args.dust1))
+    output = fit_model(obs, mod, sps, **run_params)
 
-    writer.write_hdf5(hfileda, dmp.run_params, modda, obs,
-                      outputda["sampling"][0], outputda["optimization"][0],
-                      tsample=outputda["sampling"][1],
-                      toptimize=outputda["optimization"][1],
+    writer.write_hdf5(hfile, run_params, mod, obs,
+                      output["sampling"][0], output["optimization"][0],
+                      tsample=output["sampling"][1],
+                      toptimize=output["optimization"][1],
                       sps=sps)
 
-    writer.write_hdf5(hfilenoda, dmp.run_params, modnoda, obs,
-                      outputnoda["sampling"][0], outputnoda["optimization"][0],
-                      tsample=outputnoda["sampling"][1],
-                      toptimize=outputnoda["optimization"][1],
-                      sps=sps)
-
+    #### Plotting stuff #######
+    show = ['dust2','dust_index','dust1','logmass','logsfr','logzsol']
+    show_labels = [r'$\tau_2$',r'$n$',r'$\tau_1$',r'log(M$_{\rm{st,tot}}$)','log(SFR)',r'$\log (Z/Z_\odot)$']
     try:
-        hfileda.close()
-        hfilenoda.close()
-    except(AttributeError):
+        figobj = FigureMaker(results_file=hfile,show=show,show_labels=show_labels)
+        figobj.plot_all()
+    except:
         pass
 
 if __name__ == '__main__':

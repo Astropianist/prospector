@@ -51,9 +51,9 @@ class FigureMaker(object):
         Whether to plot wavelength as mictons
     """
 
-    show = ["mass", "logzsol", "dust2"]
+    # show = ["mass", "logzsol", "dust2"]
 
-    def __init__(self, results_file="", show=None, nufnu=False, microns=True,
+    def __init__(self, results_file="", show=None, show_labels=None, nufnu=False, microns=True,
                  n_seds=-1, prior_samples=10000, **extras):
 
         self.results_file = results_file
@@ -66,6 +66,7 @@ class FigureMaker(object):
         self.spec_best = self.phot_best = None
         if show is not None:
             self.show = show
+            self.show_labels = show_labels
 
     @property
     def wave_convert(self):
@@ -234,7 +235,8 @@ class FigureMaker(object):
         :param caxes: ndarray of axes of shape (nshow, nshow)
         """
         xx = np.squeeze(np.array(self.parchain[p] for p in self.show))
-        labels = [pretty.get(p, p) for p in self.show()]
+        # labels = [pretty.get(p, p) for p in self.show()]
+        labels = self.show_labels
         spans = get_spans(None, xx, weights=self.weights)
         caxes = allcorner(xx, labels, caxes, weights=self.weights, span=spans,
                           color=self.pkwargs["color"], hist_kwargs=self.hkwargs,
