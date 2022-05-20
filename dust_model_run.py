@@ -52,7 +52,7 @@ def parse_args(argv=None):
                         help="Metallicity of the mock; log(Z/Z_sun)")
     parser.add_argument('-logM','--logmass', type=float, default=10.0,
                         help="Log stellar mass of the mock; log solar masses formed")
-    parser.add_argument('-lsr','--logsfr_ratios', type=float, nargs='*', default=[0.0]*7, help="Stellar mass of the mock; solar masses formed")
+    parser.add_argument('-lsr','--logsfr_ratios', type=float, nargs='*', default=[0.0]*6, help="Stellar mass of the mock; solar masses formed")
 
     # Initialize arguments
     args = parser.parse_args(args=argv)
@@ -65,7 +65,8 @@ def main():
     args = parse_args()
     run_params = dmp.run_params
     run_params.update(vars(args))
-    obs = dmp.build_obs(snr=args.snr,filterset=filterset[:args.num_filters],**run_params)
+    run_params['filterset'] = filterset[:args.num_filters]
+    obs = dmp.build_obs(**run_params)
     if args.use_dust_attn:
         mod = dmp.load_model(**run_params)
     else:
@@ -73,6 +74,7 @@ def main():
     sps = dmp.load_sps(**run_params)
 
     hfile = "{0}_{1}_{2}_uda_{3}_time_{4}_args_{5}_{6}_{7}_{8}_{9}_{10}_{11}_mcmc.h5".format(args.outfile, args.nfilters, int(args.snr), int(args.use_dust_attn), int(time.time()), str(args.logmass), str(args.logzsol), str(args.zred), str(args.logsfr_ratios), str(args.dust2), str(args.dust_index), str(args.dust1))
+
     output = fit_model(obs, mod, sps, **run_params)
 
     writer.write_hdf5(hfile, run_params, mod, obs,

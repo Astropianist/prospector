@@ -16,6 +16,7 @@ pc = 3.085677581467192e18  # in cm
 lightspeed = 2.998e18  # AA/s
 to_cgs = lsun/(4.0 * np.pi * (pc*10)**2)
 jansky_mks = 1e-26
+log_stellar_tot_ratio=-0.0969
 
 #############
 # DUST INFO
@@ -251,9 +252,9 @@ model_params.append({'name': 'agebins', 'N': 1,
                         'units': 'log(yr)',
                         'prior': None})
 
-model_params.append({'name': 'logsfr_ratios', 'N': 7,
+model_params.append({'name': 'logsfr_ratios', 'N': 6,
                         'isfree': True,
-                        'init': [0]*7,
+                        'init': [0]*6,
                         'units': '',
                         'prior': None})
 
@@ -517,17 +518,23 @@ class DustAttnPrior(priors.Prior):
 
     prior_params = ['logsfr','logstmass','logzsol','zred','d1min','d1max','d2min','d2max','nmin','nmax']
     distribution = truncnorm
+
+    def __len__(self):
+        """ Hack to work with Prospector 0.3
+        """
+        return 3
         
     def scale_d12(self,tau2):
         return 0.0725*np.sqrt(0.172*(tau2-0.0119))+0.0548
 
     def loc_d2n(self,numrep=10):
-        indep = np.repeat([[self.logstmass,self.logsfr,self.logzsol,self.zred,0.0]],numrep,axis=0)
+        indep = np.repeat([[self.params['logstmass'],self.params['logsfr'],self.params['logzsol'],self.params['zred'],0.0]],numrep,axis=0)
         indep[:,-1] = np.random.choice(inc_sample,size=numrep)
         return np.average(d2int(indep),axis=0), np.average(nint(indep),axis=0)
 
     def loc_d12(self,tau2):
-        return d1int([[tau2]])
+        if type(tau2)==np.float64 or type(tau2)==np.float32: return d1int([tau2])[0]
+        else: return d1int([tau2])
 
     def get_args_d2n(self):
         locd2, locn = self.loc_d2n()
@@ -612,10 +619,10 @@ class DustAttnPrior(priors.Prior):
         if len(kwargs) > 0:
             self.update(**kwargs)
         a_d2, b_d2, a_n, b_n, locd2, locn = self.get_args_d2n()
-        tau2 = self.distribution.ppf(x[0], a_d2[0], b_d2[0], loc=locd2, scale=wtmed)
-        n = self.distribution.ppf(x[1], a_n[0], b_n[0], loc=locn, scale=wnmed)
+        tau2 = self.distribution.ppf(x[0], a_d2, b_d2, loc=locd2, scale=wtmed)
+        n = self.distribution.ppf(x[1], a_n, b_n, loc=locn, scale=wnmed)
         a_d1, b_d1, locd1, wd1med = self.get_args_d12(tau2=tau2)
-        tau1 = self.distribution.ppf(x[2], a_d1[0], b_d1[0], loc=locd1, scale=wd1med)
+        tau1 = self.distribution.ppf(x[2], a_d1, b_d1, loc=locd1, scale=wd1med)
         return np.array([tau2,n,tau1])
 
 ###### Redefine SPS ######
@@ -767,8 +774,7 @@ def load_model(nbins_sfh=7, sigma=0.3, df=2, agelims=run_params['agelims'], objn
     else:
         model_params[n.index('massmet')]['prior'] = priors.TopHat(mini=-1.98, maxi=0.19)
     model_params[n.index('zred')]['init'] = zred
-    model_params[n.index('dustattn')]['prior'] = DustAttnPrior(d1min=0.0,d1max=6.0,d2min=0.0,d2max=4.0,nmin=-1.0,nmax=0.4)
-
+    model_params[n.index('dustattn')]['prior'] = DustAttnPrior(d1min=0.0,d1max=6.0,d2min=0.0,d2max=4.0,nmin=-1.0,nmax=0.4,logstmass=model_params[n.index('logmass')]['init']+log_stellar_tot_ratio,logsfr=model_params[n.index('logsfr')]['init'],logzsol=model_params[n.index('logzsol')]['init'],zred=zred)
     return sedmodel.SedModel(model_params)
 
 def build_noise(**extras):

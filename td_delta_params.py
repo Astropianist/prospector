@@ -241,7 +241,7 @@ model_params.append({'name': 'agebins', 'N': 1,
                         'units': 'log(yr)',
                         'prior': None})
 
-model_params.append({'name': 'logsfr_ratios', 'N': 7,
+model_params.append({'name': 'logsfr_ratios', 'N': 6,
                         'isfree': True,
                         'init': [],
                         'units': '',
