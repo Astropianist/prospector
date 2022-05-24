@@ -5,6 +5,7 @@ and convenience methods for prospector results files.
 """
 
 import numpy as np
+import os.path as op
 try:
     import matplotlib.pyplot as pl
 except(ImportError):
@@ -54,19 +55,21 @@ class FigureMaker(object):
     # show = ["mass", "logzsol", "dust2"]
 
     def __init__(self, results_file="", show=None, show_labels=None, nufnu=False, microns=True,
-                 n_seds=-1, prior_samples=10000, **extras):
+                 n_seds=-1, prior_samples=10000, plot_resid=True, param_module='',**extras):
 
         self.results_file = results_file
         self.prior_samples = prior_samples
         self.n_seds = n_seds
         self.nufnu = nufnu
         self.microns = microns
+        self.param_module = param_module
         if results_file:
             self.read_in(results_file)
         self.spec_best = self.phot_best = None
         if show is not None:
             self.show = show
             self.show_labels = show_labels
+        self.plot_resid = plot_resid
 
     @property
     def wave_convert(self):
@@ -87,9 +90,9 @@ class FigureMaker(object):
         :param results_file: string
             full path of the file with the prospector results.
         """
-        self.result, self.obs, self.model = reader.results_from(results_file)
+        self.result, self.obs, self.model = reader.results_from(results_file,dangerous=False)
         if self.model is None:
-            self.model = reader.get_model(self.results)
+            self.model = reader.get_model(self.result)
         self.sps = None
         self.chain = chain_to_struct(self.result["chain"], self.model)
         self.weights = self.result.get("weights", None)
@@ -189,7 +192,13 @@ class FigureMaker(object):
         be overridden by subclasses if necessary.
         """
         print("building sps from paramfile")
-        self.sps = reader.get_sps(self.result)
+        # self.sps = reader.get_sps(self.result)
+        user_module = __import__(self.param_module)
+        try:
+            self.sps = user_module.load_sps(**self.result['run_params'])
+        except(AttributeError):
+            self.sps = user_module.build_sps(**self.result['run_params'])
+
 
     def show_priors(self, diagonals, spans, smooth=0.05,
                     color="g", peak=0.96, **linekwargs):
@@ -219,14 +228,21 @@ class FigureMaker(object):
         """Main plotting function; makes axes, plotting styles, and then a
         corner plot and an SED (and residual) plot.
         """
+        out_dir, out_name = op.split(self.results_file)
         self.make_axes()
         self.styles()
-        self.plot_corner(self.caxes)
-        if self.nseds >= 0:
-            self.make_seds()
+        try:
+            self.plot_corner(self.caxes)
+            self.figcorner.savefig(op.join(out_dir,out_name.replace('_mcmc.h5','_corner.png')),bbox_inches='tight',dpi=300)
+        except:
+            pass
+        self.make_seds()
+        
         self.plot_sed(self.sax, self.rax, nufnu=self.nufnu, microns=self.microns)
         self.sax.legend(loc="lower right")
         self.show_transcurves(self.sax, logify=False, height=0.1)
+        self.fig_s.savefig(op.join(out_dir,out_name.replace('_mcmc.h5','_sed.png')),bbox_inches='tight',dpi=300)
+        if self.rax is not None: self.fig_r.savefig(op.join(out_dir,out_name.replace('_mcmc.h5','_resid_sed.png')),bbox_inches='tight',dpi=300)
 
     def plot_corner(self, caxes, **extras):
         """Example to make a corner plot of the posterior PDFs for the
@@ -325,7 +341,10 @@ class FigureMaker(object):
     def make_axes(self):
         """Make a set of axes and assign them to the object.
         """
-        self.caxes = pl.subplots(len(self.show), len(self.show))
+        self.figcorner, self.caxes = pl.subplots(len(self.show), len(self.show))
+        self.fig_s, self.sax = pl.subplots()
+        if self.plot_resid: self.fig_r, self.rax = pl.subplots()
+        else: self.fig_r, self.rax = None, None
 
     def styles(self, colorcycle=colorcycle):
         """Define a set of plotting styles for use throughout the figure.

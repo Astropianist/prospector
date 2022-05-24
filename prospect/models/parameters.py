@@ -184,9 +184,11 @@ class ProspectorParams(object):
             parameter values.
         """
         lnp_prior = 0
-        extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
+        try: # Dust_model_params
+            extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
+        except: # td_delta_params
+            extra_args = {}
         for k, inds in list(self.theta_index.items()):
-
             func = self.config_dict[k]['prior']
             if k=='popdust': this_prior = np.sum(func(theta[..., inds], **extra_args), axis=-1)
             else: this_prior = np.sum(func(theta[..., inds]), axis=-1)
@@ -205,7 +207,10 @@ class ProspectorParams(object):
             corresponding to ``unit_coords``. ndarray of shape ``(ndim,)``
         """
         theta = np.zeros(len(unit_coords))
-        extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
+        try:
+            extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
+        except:
+            extra_args = {}
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior'].unit_transform
             if k=='popdust': theta[inds] = func(unit_coords[inds], **extra_args)

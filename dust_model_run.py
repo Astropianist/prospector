@@ -1,4 +1,4 @@
-import numpy as np
+import pickle
 import dust_model_params as dmp
 import td_delta_params as pfile
 import time
@@ -35,6 +35,14 @@ def parse_args(argv=None):
                         help='''Use dust attenuation population model as prior''',
                         action='count',default=0)
 
+    parser.add_argument("-mmp", "--make_model_pickle",
+                        help='''Make the model pickle file''',
+                        action='count',default=0)
+    
+    parser.add_argument("-mf", "--make_figures",
+                        help='''Make just the figures''',
+                        action='count',default=0)
+
     parser.add_argument("-nf", "--num_filters",
                          help='''Number of filters to use''',
                          type=int, default=2) 
@@ -66,22 +74,31 @@ def main():
     run_params = dmp.run_params
     run_params.update(vars(args))
     run_params['filterset'] = filterset[:args.num_filters]
-    obs = dmp.build_obs(**run_params)
-    if args.use_dust_attn:
-        mod = dmp.load_model(**run_params)
-    else:
-        mod = pfile.load_model(**run_params)
-    sps = dmp.load_sps(**run_params)
+    hfile = "{0}_{1}_{2}_uda_{3}_args_{4}_{5}_{6}_{7}_{8}_{9}_{10}_mcmc.h5".format(args.outfile, args.num_filters, int(args.snr), int(args.use_dust_attn), str(args.logmass), str(args.logzsol), str(args.zred), str(args.logsfr_ratios), str(args.dust2), str(args.dust_index), str(args.dust1))
+    mfile = hfile.replace('_mcmc.h5','_model')
+    print("Finished creating run_params")
+    if not args.make_figures:
+        if args.use_dust_attn:
+            mod = dmp.load_model(**run_params)
+        else:
+            mod = pfile.load_model(**run_params)
+        print("Loaded fresh model for testing")
+        modoutput = {}
+        modoutput['powell'] = None
+        modoutput['prospector_version'] = '1.1.0'
+        modoutput['model'] = mod
+        pickle.dump(modoutput,open(mfile,'wb'),protocol=4)
+        if args.make_model_pickle: return
+        obs, sps = dmp.build_obs(**run_params)
+        print("Built mock obs and stored sps")
 
-    hfile = "{0}_{1}_{2}_uda_{3}_time_{4}_args_{5}_{6}_{7}_{8}_{9}_{10}_{11}_mcmc.h5".format(args.outfile, args.nfilters, int(args.snr), int(args.use_dust_attn), int(time.time()), str(args.logmass), str(args.logzsol), str(args.zred), str(args.logsfr_ratios), str(args.dust2), str(args.dust_index), str(args.dust1))
+        output = fit_model(obs, mod, sps, **run_params)
 
-    output = fit_model(obs, mod, sps, **run_params)
-
-    writer.write_hdf5(hfile, run_params, mod, obs,
-                      output["sampling"][0], output["optimization"][0],
-                      tsample=output["sampling"][1],
-                      toptimize=output["optimization"][1],
-                      sps=sps)
+        writer.write_hdf5(hfile, run_params, mod, obs,
+                        output["sampling"][0], output["optimization"][0],
+                        tsample=output["sampling"][1],
+                        toptimize=output["optimization"][1],
+                        sps=sps)
 
     #### Plotting stuff #######
     show = ['dust2','dust_index','dust1','logmass','logsfr','logzsol']

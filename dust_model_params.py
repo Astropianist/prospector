@@ -134,7 +134,7 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     # This ensures all required keys are present
     mock = fix_obs(mock)
 
-    return mock
+    return mock, sps
 
 ##########################
 # TRANSFORMATION FUNCTIONS
@@ -533,8 +533,13 @@ class DustAttnPrior(priors.Prior):
         return np.average(d2int(indep),axis=0), np.average(nint(indep),axis=0)
 
     def loc_d12(self,tau2):
-        if type(tau2)==np.float64 or type(tau2)==np.float32: return d1int([tau2])[0]
-        else: return d1int([tau2])
+        if type(tau2)==np.float64 or type(tau2)==np.float32: 
+            return d1int([tau2])[0]
+        else: 
+            try: # Array of values
+                return d1int(tau2)
+            except: # Weird case where it's a numpy 0-dim array
+                return d1int([tau2])
 
     def get_args_d2n(self):
         locd2, locn = self.loc_d2n()

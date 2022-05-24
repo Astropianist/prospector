@@ -89,7 +89,7 @@ def results_from(filename, model_file=None, dangerous=True, **kwargs):
                   res.get("paramfile_text", ''))
     model, powell_results = read_model(mname, param_file=param_file,
                                        dangerous=dangerous, **kwargs)
-    if dangerous:
+    if dangerous and model is None:
         try:
             model = get_model(res)
         except:
