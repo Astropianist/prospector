@@ -151,7 +151,7 @@ def main(filename='',n_seds=200):
     if uda: true_vals = [rp['logmass'],rp['logzsol'],rp['logsfr_ratios'][0]] + rp['dustattn']
     else: true_vals = [rp['logmass'],rp['logzsol'],rp['logsfr_ratios'][0],rp['dust2'],rp['dust_index'],rp['dust1_ratio']]
 
-    # plot_corner(res['chain'],res['theta_labels'],inds=inds,fn=filename,true_vals=true_vals,weights=res['weights'])
+    plot_corner(res['chain'],res['theta_labels'],inds=inds,fn=filename,true_vals=true_vals,weights=res['weights'])
 
     phot_resid_avg = plot_sed(res,obs,mod,sps,fn=filename,n_seds=n_seds)
     with open('ProspResid.dat','a') as resid_file:

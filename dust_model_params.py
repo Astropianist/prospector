@@ -111,7 +111,6 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
 
     # And build the mock
     mod.params.update(params)
-    np.random.seed(8935)
     spec, phot, _ = mod.mean_model(mod.theta, mock, sps=sps)
 
     # Now store some ancillary, helpful info;
@@ -125,6 +124,7 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     # And store the photometry, adding noise if desired
     pnoise_sigma = phot / snr
     if add_noise:
+        np.random.seed(8935)
         pnoise = np.random.normal(0, 1, len(phot)) * pnoise_sigma
         mock['maggies'] = phot + pnoise
     else:
