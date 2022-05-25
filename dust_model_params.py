@@ -111,6 +111,7 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
 
     # And build the mock
     mod.params.update(params)
+    np.random.seed(8935)
     spec, phot, _ = mod.mean_model(mod.theta, mock, sps=sps)
 
     # Now store some ancillary, helpful info;

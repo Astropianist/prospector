@@ -101,13 +101,16 @@ def main():
                         sps=sps)
 
     #### Plotting stuff #######
-    show = ['dust2','dust_index','dust1','logmass','logsfr','logzsol']
-    show_labels = [r'$\tau_2$',r'$n$',r'$\tau_1$',r'log(M$_{\rm{st,tot}}$)','log(SFR)',r'$\log (Z/Z_\odot)$']
-    try:
-        figobj = FigureMaker(results_file=hfile,show=show,show_labels=show_labels)
-        figobj.plot_all()
-    except:
-        pass
+    import SimplePlotting as SP
+    SP.main(filename=hfile, n_seds=200)
+
+    # show = ['dust2','dust_index','dust1','logmass','logsfr','logzsol']
+    # show_labels = [r'$\tau_2$',r'$n$',r'$\tau_1$',r'log(M$_{\rm{st,tot}}$)','log(SFR)',r'$\log (Z/Z_\odot)$']
+    # try:
+    #     figobj = FigureMaker(results_file=hfile,show=show,show_labels=show_labels)
+    #     figobj.plot_all()
+    # except:
+    #     pass
 
 if __name__ == '__main__':
     main()
