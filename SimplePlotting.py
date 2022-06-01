@@ -163,7 +163,8 @@ def main(filename='',n_seds=200):
     chain[:,2], chain_td[:,2] = logsfr, logsfr_td
     chain_td[:,-1] = chain_td[:,-1] * chain_td[:,-3] # Dust1_ratio to Dust1
     rp = res['run_params']
-    true_vals = [rp['logmass'],rp['logzsol'],rp['logsfr_ratios'][0]] + rp['dustattn']
+    true_sfr = dmp.logmass_to_logsfr(massmet=rp['massmet'],logsfr_ratios=rp['logsfr_ratios'],agebins=mod.params['agebins'])
+    true_vals = [rp['logmass'],rp['logzsol'],true_sfr] + rp['dustattn']
     labels = [r'$\log({\rm M}_*)$',r'$\log(Z/Z_\odot)$',r'$\log({\rm SFR})$',r'$\tau_2$',r'$n$',r'$\tau_1$']
 
     plot_corner(chain,chain_td,labels,fn=filename,true_vals=true_vals,weights=res['weights'],weights2=res_td['weights'])
