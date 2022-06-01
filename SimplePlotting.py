@@ -140,7 +140,7 @@ def plot_sed(res,obs,mod,sps,fn='Results/sample_mcmc.h5',n_seds=-1):
 
     return phot_resid.sum()/len(phot_resid)
 
-def main(filename='',n_seds=200):
+def main(filename='',n_seds=200,sps=None):
     import dust_model_params as dmp
     # args = parse_args()
     # if 'uda_1' in filename: 
@@ -173,7 +173,7 @@ def main(filename='',n_seds=200):
     if exists(fn_sed):
         return
 
-    sps = dmp.load_sps(**res['run_params'])
+    if sps is None: sps = dmp.load_sps(**res['run_params'])
     phot_resid_avg = plot_sed(res,obs,mod,sps,fn=filename,n_seds=n_seds)
     phot_resid_avg_td = plot_sed(res_td,obs_td,mod_td,sps,fn=filename_td,n_seds=n_seds)
     with open('ProspResid.dat','a') as resid_file:

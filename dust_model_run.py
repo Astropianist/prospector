@@ -77,6 +77,7 @@ def main():
     hfile = "{0}_{1}_{2}_uda_{3}_args_{4}_{5}_{6}_{7}_{8}_{9}_{10}_mcmc.h5".format(args.outfile, args.num_filters, int(args.snr), int(args.use_dust_attn), str(args.logmass), str(args.logzsol), str(args.zred), str(args.logsfr_ratios), str(args.dust2), str(args.dust_index), str(args.dust1))
     mfile = hfile.replace('_mcmc.h5','_model')
     print("Finished creating run_params")
+    sps = None #Placeholder if make_figures is True
     if not args.make_figures:
         if args.use_dust_attn:
             mod = dmp.load_model(**run_params)
@@ -101,8 +102,9 @@ def main():
                         sps=sps)
 
     #### Plotting stuff #######
-    import SimplePlotting as SP
-    SP.main(filename=hfile, n_seds=200)
+    if args.use_dust_attn:
+        import SimplePlotting as SP
+        SP.main(filename=hfile, n_seds=200, sps=sps)
 
     # show = ['dust2','dust_index','dust1','logmass','logsfr','logzsol']
     # show_labels = [r'$\tau_2$',r'$n$',r'$\tau_1$',r'log(M$_{\rm{st,tot}}$)','log(SFR)',r'$\log (Z/Z_\odot)$']
