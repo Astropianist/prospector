@@ -185,12 +185,12 @@ class ProspectorParams(object):
         """
         lnp_prior = 0
         try: # Dust_model_params
-            extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
+            extra_args = {'logsfr': self.params['logsfr'][0], 'logstmass': self.params['logmass'][0]+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'][0], 'zred': self.params['zred'][0]}
         except: # td_delta_params
             extra_args = {}
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior']
-            if k=='popdust': this_prior = np.sum(func(theta[..., inds], **extra_args), axis=-1)
+            if k=='dustattn': this_prior = np.sum(func(theta[..., inds], **extra_args), axis=-1)
             else: this_prior = np.sum(func(theta[..., inds]), axis=-1)
             lnp_prior += this_prior
 
@@ -208,12 +208,12 @@ class ProspectorParams(object):
         """
         theta = np.zeros(len(unit_coords))
         try:
-            extra_args = {'logsfr': self.params['logsfr'], 'logstmass': self.params['logmass']+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'], 'zred': self.params['zred']}
+            extra_args = {'logsfr': self.params['logsfr'][0], 'logstmass': self.params['logmass'][0]+log_stellar_tot_ratio, 'logzsol': self.params['logzsol'][0], 'zred': self.params['zred'][0]}
         except:
             extra_args = {}
         for k, inds in list(self.theta_index.items()):
             func = self.config_dict[k]['prior'].unit_transform
-            if k=='popdust': theta[inds] = func(unit_coords[inds], **extra_args)
+            if k=='dustattn': theta[inds] = func(unit_coords[inds], **extra_args)
             else: theta[inds] = func(unit_coords[inds])
         return theta
 

@@ -1,4 +1,5 @@
 import numpy as np
+from os.path import exists
 import matplotlib.pyplot as plt
 import prospect.io.read_results as reader
 from prospect.plotting.utils import sample_posterior
@@ -30,11 +31,14 @@ def parse_args(argv=None):
 
     return args
 
-def plot_corner(chain,theta_labels,inds,true_vals=None,fn='Results/sample_mcmc.h5',weights=None):
+def plot_corner(chain,chain2,theta_labels,true_vals=None,fn='Results/sample_mcmc.h5',weights=None,weights2=None):
     indf = np.where(np.all(np.isfinite(chain),axis=1))[0]
-    chain_corner = chain[indf][:,inds]
-    percentile_range = [0.95]*len(inds)
-    fig = corner.corner(chain_corner,labels=np.array(theta_labels)[inds],truths=true_vals,weights=weights[indf],truth_color='r',show_titles=True,quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='indigo',range=percentile_range)
+    percentile_range = [0.95]*len(theta_labels)
+    fig = corner.corner(chain[indf],labels=theta_labels,truths=true_vals,weights=weights[indf],truth_color='k',show_titles=True,quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='indigo',range=percentile_range)
+
+    indf = np.where(np.all(np.isfinite(chain2),axis=1))[0]
+    corner.corner(chain2[indf],weights=weights2[indf],quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='red',range=percentile_range, fig=fig)
+
     fig.savefig(fn.replace('_mcmc.h5','_corner.png'),bbox_inches='tight',dpi=200)
 
 def make_seds(res,obs,mod,sps,n_seds=-1):
@@ -137,25 +141,43 @@ def plot_sed(res,obs,mod,sps,fn='Results/sample_mcmc.h5',n_seds=-1):
     return phot_resid.sum()/len(phot_resid)
 
 def main(filename='',n_seds=200):
+    import dust_model_params as dmp
     # args = parse_args()
-    if 'uda_1' in filename: 
-        uda = 1
-        import dust_model_params as dmp
-    else: 
-        uda = 0
-        import td_delta_params as dmp
+    # if 'uda_1' in filename: 
+    #     uda = 1
+    #     import dust_model_params as dmp
+    # else: 
+    #     uda = 0
+    #     import td_delta_params as dmp
+    filename_td = filename.replace('uda_1','uda_0')
     res, obs, mod = reader.results_from(filename)
-    sps = dmp.load_sps(**res['run_params'])
+    res_td, obs_td, mod_td = reader.results_from(filename_td)
+    logsfr = np.empty_like(res['chain'][:,0])
+    logsfr_td = np.empty_like(res_td['chain'][:,0])
+    for i in range(len(logsfr)):
+        logsfr[i] = dmp.logmass_to_logsfr(massmet=res['chain'][i,0:2],logsfr_ratios=res['chain'][i,2:8],agebins=mod.params['agebins'])
+    for i in range(len(logsfr_td)):
+        logsfr_td[i] = dmp.logmass_to_logsfr(massmet=res_td['chain'][i,0:2],logsfr_ratios=res_td['chain'][i,2:8],agebins=mod_td.params['agebins'])
     inds = np.array([0,1,2,8,9,10])
+    chain, chain_td = res['chain'][:,inds], res_td['chain'][:,inds]
+    chain[:,2], chain_td[:,2] = logsfr, logsfr_td
+    chain_td[:,-1] = chain_td[:,-1] * chain_td[:,-3] # Dust1_ratio to Dust1
     rp = res['run_params']
-    if uda: true_vals = [rp['logmass'],rp['logzsol'],rp['logsfr_ratios'][0]] + rp['dustattn']
-    else: true_vals = [rp['logmass'],rp['logzsol'],rp['logsfr_ratios'][0],rp['dust2'],rp['dust_index'],rp['dust1_ratio']]
+    true_vals = [rp['logmass'],rp['logzsol'],rp['logsfr_ratios'][0]] + rp['dustattn']
+    labels = [r'$\log({\rm M}_*)$',r'$\log(Z/Z_\odot)$',r'$\log({\rm SFR})$',r'$\tau_2$',r'$n$',r'$\tau_1$']
 
-    plot_corner(res['chain'],res['theta_labels'],inds=inds,fn=filename,true_vals=true_vals,weights=res['weights'])
+    plot_corner(chain,chain_td,labels,fn=filename,true_vals=true_vals,weights=res['weights'],weights2=res_td['weights'])
 
+    fn_sed = filename.replace('_mcmc.h5','_sed.png')
+    if exists(fn_sed):
+        return
+
+    sps = dmp.load_sps(**res['run_params'])
     phot_resid_avg = plot_sed(res,obs,mod,sps,fn=filename,n_seds=n_seds)
+    phot_resid_avg_td = plot_sed(res_td,obs_td,mod_td,sps,fn=filename_td,n_seds=n_seds)
     with open('ProspResid.dat','a') as resid_file:
         resid_file.write(f'{filename}  {phot_resid_avg:.2f} \n')
+        resid_file.write(f'{filename_td}  {phot_resid_avg_td:.2f} \n')
 
 if __name__ == '__main__':
     main()

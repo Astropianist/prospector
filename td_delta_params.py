@@ -171,6 +171,10 @@ def logmass_to_masses(massmet=None, logsfr_ratios=None, agebins=None, **extras):
 
     return m1 * coeffs
 
+def logmass_to_logsfr(massmet=None, logsfr_ratios=None, agebins=None, stellar_to_total=0.8, time_sfr=1.0e8, **extras):
+    mass_in_bins = logmass_to_masses(massmet=massmet, logsfr_ratios=logsfr_ratios, agebins=agebins, **extras)
+    return np.log10(mass_in_bins[:2].sum()*stellar_to_total/time_sfr)
+
 #############
 # MODEL_PARAMS
 #############
