@@ -77,7 +77,7 @@ def fix_obs(obs, rescale_spectrum=False, normalize_spectrum=False,
     else:
         obs['maggies_unc'] = None
 
-    assert obs["ndof"] > 0, "No valid data to fit: check the sign of the masks."
+    # assert obs["ndof"] > 0, "No valid data to fit: check the sign of the masks."
 
     return obs
 
