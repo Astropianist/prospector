@@ -101,6 +101,9 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
 
     # We need the models to make a mock
     sps = load_sps(**kwargs)
+    if len(filterset)==0: 
+        mock = fix_obs(mock)
+        return mock, sps
     mod = load_model(**kwargs)
 
     # Now we get the mock params from the kwargs dict
