@@ -89,7 +89,7 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     :param add_noise: (optional, boolean, default: True)
         If True, add a realization of the noise to the mock spectrum
     """
-    from prospect.utils.obsutils import fix_obs
+    from prospect.utils.obsutils import fix_obs, rectify_obs
 
     # We'll put the mock data in this dictionary, just as we would for real
     # data.  But we need to know which bands (and wavelengths if doing
@@ -102,7 +102,7 @@ def build_obs(snr=10.0, filterset=["sdss_g0", "sdss_r0"],
     # We need the models to make a mock
     sps = load_sps(**kwargs)
     if len(filterset)==0: 
-        mock = fix_obs(mock)
+        mock = rectify_obs(mock)
         return mock, sps
     mod = load_model(**kwargs)
 
