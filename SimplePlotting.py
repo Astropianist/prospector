@@ -3,6 +3,7 @@ from os.path import exists
 import matplotlib.pyplot as plt
 import prospect.io.read_results as reader
 from prospect.plotting.utils import sample_posterior
+from prospect.likelihood.likelihood import lnlike_phot
 import argparse as ap
 import corner
 import seaborn as sns
@@ -31,13 +32,19 @@ def parse_args(argv=None):
 
     return args
 
-def plot_corner(chain,chain2,theta_labels,true_vals=None,fn='Results/sample_mcmc.h5',weights=None,weights2=None):
+def plot_corner(chain,chain2,theta_labels,true_vals=None,fn='Results/sample_mcmc.h5',weights=None,weights2=None,likmax=0.0,liktrue=0.0,likmax2=0.0,liktrue2=0.0,percentile_range=None):
     indf = np.where(np.all(np.isfinite(chain),axis=1))[0]
-    percentile_range = [0.95]*len(theta_labels)
+    if percentile_range is None: percentile_range = [0.95]*len(theta_labels)
     fig = corner.corner(chain[indf],labels=theta_labels,truths=true_vals,weights=weights[indf],truth_color='k',show_titles=True,quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='indigo',range=percentile_range)
 
     indf = np.where(np.all(np.isfinite(chain2),axis=1))[0]
     corner.corner(chain2[indf],weights=weights2[indf],quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='red',range=percentile_range, fig=fig)
+
+    ax = plt.gca()
+    ax.text(0.7,0.9,f'Max lnl DAP: {likmax:0.2f}',transform=ax.transAxes)
+    ax.text(0.7,0.84,f'True lnl DAP: {liktrue:0.2f}',transform=ax.transAxes)
+    ax.text(0.7,0.78,f'Max lnl Vanilla: {likmax2:0.2f}',transform=ax.transAxes)
+    ax.text(0.7,0.72,f'True lnl Vanilla: {liktrue2:0.2f}',transform=ax.transAxes)
 
     fig.savefig(fn.replace('_mcmc.h5','_corner.png'),bbox_inches='tight',dpi=200)
 
@@ -166,8 +173,11 @@ def main(filename='',n_seds=200,sps=None):
     true_sfr = dmp.logmass_to_logsfr(massmet=rp['massmet'],logsfr_ratios=rp['logsfr_ratios'],agebins=mod.params['agebins'])
     true_vals = [rp['logmass'],rp['logzsol'],true_sfr] + rp['dustattn']
     labels = [r'$\log({\rm M}_*)$',r'$\log(Z/Z_\odot)$',r'$\log({\rm SFR})$',r'$\tau_2$',r'$n$',r'$\tau_1$']
+    ranges = [(7.5,12.5),(-1.98,0.19),(-2.5,2.5),(0,4),(-1,0.4),(0,5)]
 
-    plot_corner(chain,chain_td,labels,fn=filename,true_vals=true_vals,weights=res['weights'],weights2=res_td['weights'])
+    likmax, liktrue, likmax2, liktrue2 = np.nanmax(res['lnlikelihood']), lnlike_phot(obs['true_maggies'],obs=obs), np.nanmax(res_td['lnlikelihood']), lnlike_phot(obs_td['true_maggies'],obs=obs_td)
+
+    plot_corner(chain,chain_td,labels,fn=filename,true_vals=true_vals,weights=res['weights'],weights2=res_td['weights'],likmax=likmax,liktrue=liktrue,likmax2=likmax2,liktrue2=liktrue2,percentile_range=ranges)
 
     fn_sed = filename.replace('_mcmc.h5','_sed.png')
     if exists(fn_sed):
