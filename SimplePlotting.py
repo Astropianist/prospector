@@ -33,18 +33,19 @@ def parse_args(argv=None):
     return args
 
 def plot_corner(chain,chain2,theta_labels,true_vals=None,fn='Results/sample_mcmc.h5',weights=None,weights2=None,likmax=0.0,liktrue=0.0,likmax2=0.0,liktrue2=0.0,percentile_range=None):
+    num = len(theta_labels)
     indf = np.where(np.all(np.isfinite(chain),axis=1))[0]
-    if percentile_range is None: percentile_range = [0.95]*len(theta_labels)
-    fig = corner.corner(chain[indf],labels=theta_labels,truths=true_vals,weights=weights[indf],truth_color='k',show_titles=True,quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='indigo',range=percentile_range)
+    if percentile_range is None: percentile_range = [0.95]*num
+    fig, ax = plt.subplots(nrows=num,ncols=num,figsize=(10,10))
+    corner.corner(chain[indf],labels=theta_labels,truths=true_vals,weights=weights[indf],truth_color='k',show_titles=True,quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='indigo',range=percentile_range,fig=fig)
 
     indf = np.where(np.all(np.isfinite(chain2),axis=1))[0]
     corner.corner(chain2[indf],weights=weights2[indf],quantiles=[0.16, 0.5, 0.84],bins=30,smooth=2.0,smooth1d=None, color='red',range=percentile_range, fig=fig)
 
-    ax = plt.gca()
-    ax.text(0.7,0.9,f'Max lnl DAP: {likmax:0.2f}',transform=ax.transAxes)
-    ax.text(0.7,0.84,f'True lnl DAP: {liktrue:0.2f}',transform=ax.transAxes)
-    ax.text(0.7,0.78,f'Max lnl Vanilla: {likmax2:0.2f}',transform=ax.transAxes)
-    ax.text(0.7,0.72,f'True lnl Vanilla: {liktrue2:0.2f}',transform=ax.transAxes)
+    ax[0,num-2].text(0,0.9,f'Max lnl DAP: {likmax:0.2f}',transform=ax[0,num-2].transAxes)
+    ax[0,num-2].text(0,0.7,f'True lnl DAP: {liktrue:0.2f}',transform=ax[0,num-2].transAxes)
+    ax[0,num-2].text(0,0.5,f'Max lnl Vanilla: {likmax2:0.2f}',transform=ax[0,num-2].transAxes)
+    ax[0,num-2].text(0,0.3,f'True lnl Vanilla: {liktrue2:0.2f}',transform=ax[0,num-2].transAxes)
 
     fig.savefig(fn.replace('_mcmc.h5','_corner.png'),bbox_inches='tight',dpi=200)
 
