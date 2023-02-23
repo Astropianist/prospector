@@ -7,7 +7,9 @@ that can be used as a starting point and then combined or altered.
 
 from copy import deepcopy
 import numpy as np
+import os
 from . import priors
+from . import priors_beta
 from . import transforms
 
 __all__ = ["TemplateLibrary",
@@ -272,9 +274,22 @@ TemplateLibrary["nebular"] = (_nebular_,
 marginalize_elines = {'N': 1, 'isfree': False, 'init': True}
 use_eline_prior = {'N': 1, 'isfree': False, 'init': True}
 nebemlineinspec = {'N': 1, 'isfree': False, 'init': False}  # can't be included w/ marginalization
+
 # marginalize over which of the 128 FSPS emission lines?
 # input is a list of emission line names matching $SPS_HOME/data/emlines_info.dat
-lines_to_fit = {'N': 1, 'isfree': False, 'init': []}
+SPS_HOME = os.getenv('SPS_HOME')
+try:
+    info = np.genfromtxt(os.path.join(SPS_HOME, 'data', 'emlines_info.dat'),
+                     dtype=[('wave', 'f8'), ('name', '<U20')],
+                     delimiter=',')
+except OSError:
+    info = {'name':[]}
+except TypeError:
+    # SPS_HOME not defined
+    info = {'name':[]}
+
+# Fit all lines by default
+elines_to_fit = {'N': 1, 'isfree': False, 'init': np.array(info['name'])}
 eline_prior_width = {'N': 1, 'isfree': False,
                      'init': 0.2,
                      'units': r'width of Gaussian prior on line luminosity, in units of (true luminosity/FSPS predictions)',
@@ -291,7 +306,7 @@ eline_sigma = {'N': 1, 'isfree': True,
 _neb_marg_ = {"marginalize_elines": marginalize_elines,
               "use_eline_prior": use_eline_prior,
               "nebemlineinspec": nebemlineinspec,
-              "lines_to_fit": lines_to_fit,
+              "elines_to_fit": elines_to_fit,
               "eline_prior_width": eline_prior_width,
               "eline_sigma": eline_sigma
               }
@@ -305,6 +320,20 @@ TemplateLibrary["nebular_marginalization"] = (_neb_marg_,
 TemplateLibrary["fit_eline_redshift"] = (_fit_eline_redshift_,
                                               ("Fit for the redshift of the emission lines separately"
                                                "from the stellar redshift"))
+
+# ------------------------
+# --- AGN Nebular emission
+# ------------------------
+_agn_eline_ = {}
+_agn_eline_["agn_elum"] = dict(N=1, isfree=False, init=1e-4,
+                               prior=priors.Uniform(mini=1e-6, maxi=1e-2),
+                               units="L_Hbeta(Lsun) / Mformed")
+_agn_eline_["agn_eline_sigma"] = dict(N=1, isfree=False, init=100.0,
+                                      prior=priors.Uniform(mini=50, maxi=500))
+_agn_eline_["nebemlineinspec"] = dict(N=1, isfree=False, init=False)  # can't be included w/ AGN lines
+
+TemplateLibrary["agn_eline"] = (_agn_eline_,
+                                ("Add AGN emission lines"))
 
 # -------------------------
 # --- Outlier Templates ---
@@ -665,3 +694,44 @@ _alpha_ = adjust_dirichlet_agebins(_alpha_, agelims=(np.log10(alpha_agelims) + 9
 
 TemplateLibrary["alpha"] = (_alpha_,
                             "The prospector-alpha model, Leja et al. 2017")
+
+
+# ----------------------------
+# --- Prospector-beta ---
+# ----------------------------
+
+_beta_nzsfh_ = TemplateLibrary["alpha"]
+_beta_nzsfh_.pop('z_fraction', None)
+_beta_nzsfh_.pop('total_mass', None)
+
+_beta_nzsfh_['nzsfh'] = {'N': 9, 'isfree': True, 'init': np.array([0.5,8,0.0, 0,0,0,0,0,0]),
+                         'prior': priors_beta.NzSFH(zred_mini=1e-3, zred_maxi=15.0,
+                                                    mass_mini=7.0, mass_maxi=12.5,
+                                                    z_mini=-1.98, z_maxi=0.19,
+                                                    logsfr_ratio_mini=-5.0, logsfr_ratio_maxi=5.0,
+                                                    const_phi=True)}
+
+_beta_nzsfh_['zred'] = {'N': 1, 'isfree': False, 'init': 0.5,
+                        'depends_on': transforms.nzsfh_to_zred}
+
+_beta_nzsfh_['logmass'] = {'N': 1, 'isfree': False, 'init': 8.0, 'units': 'Msun',
+                           'depends_on': transforms.nzsfh_to_logmass}
+
+_beta_nzsfh_['logzsol'] = {'N': 1, 'isfree': False, 'init': -0.5, 'units': r'$\log (Z/Z_\odot)$',
+                           'depends_on': transforms.nzsfh_to_logzsol}
+
+# --- SFH ---
+nbins_sfh = 7
+_beta_nzsfh_["sfh"] = {'N': 1, 'isfree': False, 'init': 3}
+
+_beta_nzsfh_['logsfr_ratios'] = {'N': 6, 'isfree': False, 'init': 0.0,
+                                 'depends_on': transforms.nzsfh_to_logsfr_ratios}
+
+_beta_nzsfh_["mass"] = {'N': 7, 'isfree': False, 'init': 1e6, 'units': r'M$_\odot$',
+                        'depends_on': transforms.logsfr_ratios_to_masses}
+
+_beta_nzsfh_['agebins'] = {'N': 7, 'isfree': False, 'init': transforms.zred_to_agebins_pbeta(np.atleast_1d(0.5)),
+                           'depends_on': transforms.zred_to_agebins_pbeta}
+
+TemplateLibrary["beta"] = (_beta_nzsfh_,
+                            "The prospector-beta model; Wang, Leja, et al. 2023")
